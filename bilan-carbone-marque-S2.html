@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Atelier ESP S2 — Bilan carbone d'une marque</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #fafaf8;
+    --card: #ffffff;
+    --ink: #1a1a1a;
+    --ink-2: #555;
+    --ink-3: #888;
+    --border: #e5e3dc;
+    --accent: #2c6e49;
+    --accent-2: #d4843c;
+    --accent-3: #6b4d8c;
+    --warn: #c44d44;
+    --soft: #f4f1ea;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; }
+  .app { max-width: 1100px; margin: 0 auto; padding: 24px 32px 80px; }
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .logo { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; color: var(--accent); }
+  .logo span { color: var(--ink-3); font-weight: 400; margin-left: 8px; }
+  .nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  .nav button { background: transparent; border: 1px solid var(--border); padding: 6px 14px; font-size: 13px; color: var(--ink-2); cursor: pointer; border-radius: 6px; font-family: inherit; transition: all 0.15s; }
+  .nav button:hover { background: var(--soft); }
+  .nav button.active { background: var(--ink); color: white; border-color: var(--ink); }
+  .nav button.done { color: var(--accent); border-color: #c9d8c8; }
+  .nav button.done::before { content: "✓ "; }
+  h1 { font-size: 28px; font-weight: 600; margin: 32px 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 20px; font-weight: 600; margin: 28px 0 12px; }
+  h3 { font-size: 15px; font-weight: 600; margin: 20px 0 8px; color: var(--ink); }
+  .subtitle { color: var(--ink-2); font-size: 15px; margin-bottom: 24px; }
+  .phase { display: none; animation: fade 0.3s ease; }
+  .phase.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 16px; }
+  .card.soft { background: var(--soft); }
+  .card.accent { border-left: 3px solid var(--accent); }
+  .card.warning { background: #fcf3e7; border: 1px solid #f0d9b0; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 720px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--ink-2); margin-bottom: 6px; }
+  input[type="text"], textarea, select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; font-family: inherit; background: white; color: var(--ink); transition: border 0.15s; }
+  input[type="text"]:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  textarea { min-height: 60px; resize: vertical; }
+  input[type="number"] { padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; width: 90px; text-align: right; font-family: inherit; }
+  input[type="number"]:focus { outline: none; border-color: var(--accent); background: #fffef9; }
+  .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .btn { padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: 1px solid; font-family: inherit; transition: all 0.15s; }
+  .btn-primary { background: var(--ink); color: white; border-color: var(--ink); }
+  .btn-primary:hover { background: #333; }
+  .btn-secondary { background: white; color: var(--ink-2); border-color: var(--border); }
+  .btn-secondary:hover { background: var(--soft); }
+  .narrative-input { font-style: italic; }
+  .input-help { font-size: 12px; color: var(--ink-3); margin-top: 4px; }
+  .dossier { font-family: Georgia, "Times New Roman", serif; }
+  .dossier-section { border-bottom: 1px solid var(--border); padding: 16px 0; }
+  .dossier-section:last-child { border-bottom: none; }
+  .dossier-key { color: var(--ink-3); font-size: 13px; font-family: -apple-system, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .dossier-val { font-size: 16px; }
+  .dossier-val strong { color: var(--accent); font-weight: 600; }
+  table.calc { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.calc thead th { text-align: left; padding: 10px 8px; background: var(--soft); border-bottom: 2px solid var(--border); font-weight: 600; color: var(--ink-2); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  table.calc tbody td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  table.calc .poste-header td { background: #f7f5ef; font-weight: 600; padding: 10px 8px; color: var(--ink); font-size: 13px; }
+  table.calc .total-row td { background: var(--soft); font-weight: 600; padding: 10px 8px; border-top: 2px solid var(--ink); }
+  table.calc td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.calc td.label { color: var(--ink); }
+  table.calc td.unit { color: var(--ink-3); font-size: 12px; }
+  table.calc td.fe { color: var(--ink-3); font-size: 12px; }
+  table.calc td.result { font-weight: 600; color: var(--accent); }
+  .chase { background: #fff7e6; }
+  .chase td.label::after { content: " 🔍"; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
+  .stat { background: var(--soft); padding: 14px 16px; border-radius: 8px; }
+  .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); font-weight: 500; }
+  .stat-value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  .stat-unit { font-size: 13px; font-weight: 400; color: var(--ink-2); margin-left: 3px; }
+  .chart-container { position: relative; height: 280px; margin: 16px 0; }
+  .levier { display: grid; grid-template-columns: 32px 1fr; gap: 12px; margin-bottom: 16px; align-items: start; }
+  .levier-num { background: var(--accent); color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; margin-top: 8px; }
+  .levier-content { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--soft); color: var(--ink-2); }
+  .pill.accent { background: #e8f0ea; color: var(--accent); }
+  .pill.warn { background: #fcf3e7; color: var(--accent-2); }
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+  .alert-info { background: #e8f0ea; color: #1a4a32; border: 1px solid #c9d8c8; }
+  .alert-warn { background: #fcf3e7; color: #8a5320; border: 1px solid #f0d9b0; }
+  .footer-note { font-size: 12px; color: var(--ink-3); margin-top: 24px; line-height: 1.5; }
+  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .narrative-card { background: linear-gradient(180deg, #fefcf6 0%, #fdf8e9 100%); border: 1px solid #ecd9a5; border-radius: 10px; padding: 24px; margin: 16px 0; }
+  .narrative-card .quote { font-family: Georgia, serif; font-style: italic; font-size: 16px; color: var(--ink); line-height: 1.6; }
+  .narrative-card .signature { font-size: 13px; color: var(--ink-2); margin-top: 12px; }
+  .step-indicator { display: flex; gap: 4px; margin: 16px 0 24px; }
+  .step-indicator .dot { height: 3px; flex: 1; background: var(--border); border-radius: 2px; transition: background 0.3s; }
+  .step-indicator .dot.done { background: var(--accent); }
+  .step-indicator .dot.current { background: var(--ink); }
+  details { margin: 12px 0; }
+  summary { cursor: pointer; padding: 8px 12px; background: var(--soft); border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); user-select: none; }
+  summary:hover { background: #ebe6db; }
+  details[open] summary { background: #ebe6db; }
+  .detail-content { padding: 12px 16px; font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="logo">Projet Celsius <span>· Atelier ESP S2</span></div>
+  <nav class="nav" id="phasesNav">
+    <button data-go="0" class="active">Brief</button>
+    <button data-go="1">1. Marque</button>
+    <button data-go="2">2. Dossier prod</button>
+    <button data-go="3">3. Calcul BC</button>
+    <button data-go="4">4. Leviers</button>
+  </nav>
+</header>
+
+<div class="step-indicator" id="stepIndicator">
+  <div class="dot current"></div>
+  <div class="dot"></div>
+  <div class="dot"></div>
+  <div class="dot"></div>
+  <div class="dot"></div>
+</div>
+
+<section class="phase active" data-phase="0">
+  <h1>Bilan carbone d'une marque que vous inventez</h1>
+  <p class="subtitle">Atelier pratique · 2h30 · École Supérieure de Publicité · M2 RSE & Communication responsable</p>
+
+  <div class="narrative-card">
+    <p class="quote">Bonjour, vous êtes la responsable RSE d'une jeune marque que vous allez fonder cet après-midi.<br><br>Vous avez fait appel à mes services - Projet Celsius - pour mesurer l'empreinte carbone de votre saison 1 : le défilé de lancement, la fabrication de la collection, la campagne publicitaire et tout ce qui s'ensuit. Pas pour vous flageller. Pour savoir où vous mettez les pieds, et décider ce que vous voulez faire de cette information.<br><br>On va le faire ensemble, pas à pas. Je vous laisse d'abord inventer votre marque. Vous me direz qui vous êtes. Le calcul vient après.</p>
+    <p class="signature">- Guillaume, Projet Celsius</p>
+  </div>
+
+  <div class="card accent">
+    <h3>Ce qu'on va faire</h3>
+    <p style="margin: 8px 0; font-size: 14px; color: var(--ink-2);">Quatre phases, balisées. Vous travaillez en équipe de 4. À la fin, chaque équipe pitche son bilan en 3 minutes et défend 3 leviers de réduction.</p>
+    <ol style="margin: 12px 0 0; padding-left: 20px; font-size: 14px; color: var(--ink-2); line-height: 1.8;">
+      <li><strong style="color: var(--ink);">Inventer votre marque</strong> - nom, univers, positionnement, choix stratégiques (30 min)</li>
+      <li><strong style="color: var(--ink);">Recevoir votre dossier de production</strong> - vos choix génèrent les données de votre saison 1 (15 min)</li>
+      <li><strong style="color: var(--ink);">Calculer le bilan carbone</strong> - sur 6 postes, avec 3 chasses méthodo (1h)</li>
+      <li><strong style="color: var(--ink);">Construire 3 leviers de réduction</strong> et préparer le pitch (30 min)</li>
+    </ol>
+  </div>
+
+  <div class="alert alert-info">
+    <strong>Le pitch final.</strong> Vous présentez votre marque (1 min) + les 3 gros postes de votre BC avec ordres de grandeur (1 min) + 3 leviers de réduction avec impact estimé (1 min). Total 3 minutes par équipe.
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" onclick="goTo(1)">Commencer · inventer ma marque →</button>
+  </div>
+</section>
+
+<section class="phase" data-phase="1">
+  <h1>Inventez votre marque</h1>
+  <p class="subtitle">Phase 1 · 30 minutes · en équipe de 4</p>
+
+  <div class="card">
+    <h3>Identité de marque</h3>
+    <p style="font-size: 13px; color: var(--ink-3); margin: -4px 0 16px;">Cette section est votre terrain de jeu. Pas d'impact sur le calcul, mais elle va vous porter pendant 2h30 - prenez-y plaisir.</p>
+
+    <div class="grid-2">
+      <div>
+        <label>Nom de la marque</label>
+        <input type="text" id="brandName" class="narrative-input" placeholder="Ex : Onde, Kintsu, Crash, Refuge..." />
+      </div>
+      <div>
+        <label>Tagline (1 phrase courte)</label>
+        <input type="text" id="brandTagline" class="narrative-input" placeholder="Ex : pour celles qui marchent contre le vent" />
+      </div>
+    </div>
+
+    <div style="margin-top: 16px;">
+      <label>Univers visuel - 3 mots-clés</label>
+      <input type="text" id="brandMood" class="narrative-input" placeholder="Ex : minéral, brut, lumineux" />
+    </div>
+
+    <div style="margin-top: 16px;">
+      <label>Mission de la marque (2 phrases max)</label>
+      <textarea id="brandMission" class="narrative-input" placeholder="Pourquoi vous existez ? À qui vous parlez ? Qu'est-ce que vous proposez de différent ?"></textarea>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Choix stratégiques</h3>
+    <p style="font-size: 13px; color: var(--ink-3); margin: -4px 0 16px;">Ces 6 choix conditionnent votre dossier de production. Chaque choix a des conséquences carbone - mais ça, vous le découvrirez en phase 3.</p>
+
+    <div class="grid-2">
+      <div>
+        <label>Catégorie de produit</label>
+        <select id="categorie">
+          <option value="pap">Prêt-à-porter (textile)</option>
+          <option value="accessoires">Accessoires (maroquinerie, bijoux)</option>
+          <option value="beaute_parfum">Beauté · parfum</option>
+          <option value="beaute_cosmo">Beauté · cosmétique / soin</option>
+          <option value="lifestyle">Lifestyle / objets déco</option>
+        </select>
+      </div>
+      <div>
+        <label>Positionnement prix</label>
+        <select id="prix">
+          <option value="accessible">Accessible (15-50 €)</option>
+          <option value="mid" selected>Mid (50-150 €)</option>
+          <option value="premium">Premium (150-500 €)</option>
+          <option value="luxe">Luxe (500 €+)</option>
+        </select>
+      </div>
+      <div>
+        <label>Ambition géographique</label>
+        <select id="ambition">
+          <option value="nationale">Nationale (FR uniquement)</option>
+          <option value="eu" selected>Européenne</option>
+          <option value="internationale">Internationale</option>
+        </select>
+      </div>
+      <div>
+        <label>Lieu du show de lancement</label>
+        <select id="lieu">
+          <option value="paris" selected>Paris</option>
+          <option value="ville_fr">Autre ville française (Marseille, Lyon...)</option>
+          <option value="capitale_eu">Capitale européenne (Milan, Londres, Berlin)</option>
+          <option value="hors_eu">Hors EU (New York, Tokyo, Shanghai)</option>
+        </select>
+      </div>
+      <div>
+        <label>Taille du show (invités)</label>
+        <select id="taille">
+          <option value="100">100 invités (intime)</option>
+          <option value="250" selected>250 invités (standard)</option>
+          <option value="500">500 invités (grand show)</option>
+        </select>
+      </div>
+      <div>
+        <label>Stratégie media</label>
+        <select id="media">
+          <option value="organic">Organic + RP seulement</option>
+          <option value="paid_digital" selected>Mix paid digital (réseaux + display)</option>
+          <option value="360">360° (TV + digital + affichage)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-warn">
+    <strong>Avant de générer.</strong> Discutez en équipe et alignez-vous sur ces 6 choix. Une marque luxe niche n'a pas la même histoire qu'une marque accessible mass market. Ces décisions structurent toute la suite.
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-secondary" onclick="goTo(0)">← retour brief</button>
+    <button class="btn btn-primary" onclick="generateAndGo()">Générer mon dossier de production →</button>
+  </div>
+</section>
+
+<section class="phase" data-phase="2">
+  <h1>Votre dossier de production</h1>
+  <p class="subtitle">Phase 2 · 15 minutes · prenez le temps de lire</p>
+
+  <div class="card dossier" id="dossierContent">
+  </div>
+
+  <div class="alert alert-info">
+    <strong>Lisez attentivement.</strong> C'est sur ces données que vous allez calculer votre bilan carbone. Si quelque chose vous semble incohérent avec votre vision de marque, c'est volontaire - le réel est rarement propre. Notez vos questions, on en parlera au débrief.
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-secondary" onclick="goTo(1)">← modifier la marque</button>
+    <button class="btn btn-primary" onclick="goTo(3)">Passer au calcul →</button>
+  </div>
+</section>
+
+<section class="phase" data-phase="3">
+  <h1>Calculez votre bilan carbone</h1>
+  <p class="subtitle">Phase 3 · 1 heure · vous remplissez les colonnes <strong>quantité</strong> en suivant votre dossier de prod</p>
+
+  <div class="stats" id="stats">
+    <div class="stat">
+      <div class="stat-label">Total saison 1</div>
+      <div class="stat-value" id="totalCO2">—<span class="stat-unit"> tCO₂e</span></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Poste dominant</div>
+      <div class="stat-value" id="topPoste" style="font-size: 16px;">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Empreinte / pièce vendue</div>
+      <div class="stat-value" id="perPiece">—<span class="stat-unit"> kgCO₂e</span></div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="bcChart"></canvas>
+  </div>
+
+  <div class="alert alert-warn" id="chaseAlert" style="margin-bottom: 16px;">
+    <strong>3 chasses méthodo dans ce tableau.</strong> Les lignes surlignées en orange (🔍) vous demandent de chercher l'info vous-mêmes : 2 distances (Google Maps suffit) et 1 facteur d'émission à trouver sur <a href="https://base-empreinte.ademe.fr/" target="_blank" style="color: var(--accent);">base-empreinte.ademe.fr</a>. Notez vos sources dans la colonne commentaire.
+  </div>
+
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <table class="calc" id="calcTable">
+      <thead>
+        <tr>
+          <th style="width: 40%;">Activité</th>
+          <th style="width: 14%;">Quantité</th>
+          <th style="width: 11%;">Unité</th>
+          <th style="width: 13%;">FE</th>
+          <th style="width: 22%;">Émissions</th>
+        </tr>
+      </thead>
+      <tbody id="calcBody">
+      </tbody>
+    </table>
+  </div>
+
+  <details>
+    <summary>D'où viennent les facteurs d'émission ?</summary>
+    <div class="detail-content">
+      Tous les FE pré-remplis viennent de la Base Empreinte ADEME 2024 ou des référentiels sectoriels reconnus (AdGreen pour la production audiovisuelle, BL Évolution / SRI pour la pub digitale). Sources documentées dans la fiche annexe distribuée par votre formateur. Les FE ne sont pas des vérités - ce sont les meilleures estimations disponibles. Une marge d'erreur de ±20% est normale et ne doit pas vous empêcher de prendre des décisions.
+    </div>
+  </details>
+
+  <div class="actions">
+    <button class="btn btn-secondary" onclick="goTo(2)">← retour dossier prod</button>
+    <button class="btn btn-primary" onclick="goTo(4)">Construire les leviers →</button>
+  </div>
+</section>
+
+<section class="phase" data-phase="4">
+  <h1>3 leviers et votre message</h1>
+  <p class="subtitle">Phase 4 · 30 minutes · préparez votre pitch en 3 minutes</p>
+
+  <div class="card soft">
+    <h3 style="margin-top: 0;">Rappel de votre bilan</h3>
+    <div id="bcSummary" style="font-size: 14px; color: var(--ink-2); line-height: 1.8;"></div>
+  </div>
+
+  <div class="card">
+    <h3>Vos 3 leviers de réduction</h3>
+    <p style="font-size: 13px; color: var(--ink-3); margin: -4px 0 20px;">Chaque levier doit cibler un poste précis, être actionnable (vous savez comment le faire) et chiffré (combien ça réduit, en ordre de grandeur).</p>
+
+    <div id="leviersContainer">
+      <div class="levier">
+        <div class="levier-num">1</div>
+        <div class="levier-content">
+          <input type="text" placeholder="Sur quel poste vous agissez (ex : transport invités)" />
+          <textarea placeholder="Que faites-vous concrètement ? Comment ? (ex : remplacer 50% des invités intercontinentaux par du streaming, partenariat avec une ferme événementielle locale)"></textarea>
+          <input type="text" placeholder="Impact estimé (ex : -30 tCO₂e, soit -15% du total)" />
+        </div>
+      </div>
+      <div class="levier">
+        <div class="levier-num">2</div>
+        <div class="levier-content">
+          <input type="text" placeholder="Sur quel poste vous agissez" />
+          <textarea placeholder="Que faites-vous concrètement ?"></textarea>
+          <input type="text" placeholder="Impact estimé" />
+        </div>
+      </div>
+      <div class="levier">
+        <div class="levier-num">3</div>
+        <div class="levier-content">
+          <input type="text" placeholder="Sur quel poste vous agissez" />
+          <textarea placeholder="Que faites-vous concrètement ?"></textarea>
+          <input type="text" placeholder="Impact estimé" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Le message que vous porterez à votre direction</h3>
+    <p style="font-size: 13px; color: var(--ink-3); margin: -4px 0 12px;">En 60 secondes, qu'est-ce que vous dites à votre CMO ? Pas un rapport - un message clair qui transforme un chiffre en décision.</p>
+    <textarea id="messageDirection" style="min-height: 120px;" placeholder="Ex : Notre saison 1 émet X tCO₂e, soit l'équivalent de X. Les deux postes dominants - X et Y - représentent 70%, et c'est exactement là qu'on peut diviser par deux sans perdre l'ambition de marque. Voici comment..."></textarea>
+  </div>
+
+  <div class="alert alert-info">
+    <strong>Préparez le pitch.</strong> Vous avez 3 minutes pour présenter : 1 min de marque (qui vous êtes), 1 min de bilan (les 3 gros postes), 1 min de leviers (vos 3 actions chiffrées + le message). Pas de slides - juste vous.
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-secondary" onclick="goTo(3)">← retour calcul</button>
+    <button class="btn btn-primary" onclick="exportSession()">Exporter la session</button>
+  </div>
+</section>
+
+<div class="footer-note">
+  Atelier conçu pour le M2 RSE & Communication responsable de l'École Supérieure de Publicité. <br>
+  Facteurs d'émission : ADEME Base Empreinte 2024, AdGreen, BL Évolution + SRI. Méthodologie : Bilan Carbone® ABC + GHG Protocol. <br>
+  Projet Celsius · Mai 2026
+</div>
+
+</div>
+
+<script>
+const FE = {
+  elec_fr: 0.06,
+  gaz: 0.227,
+  bois_scenographie: 0.46,
+  metal_scenographie: 2.5,
+  textile_scenographie: 9,
+  repas_cocktail: 1.5,
+  repas_premium: 2.5,
+  avion_long: 0.15,
+  avion_court: 0.23,
+  train_tgv: 0.003,
+  voiture: 0.193,
+  textile_coton: 11,
+  textile_synth: 9,
+  textile_mix: 10,
+  maroquinerie_cuir: 17,
+  cosmetique: 6,
+  parfum: 9,
+  lifestyle: 5,
+  confection: 3,
+  transport_route_intl: 0.09,
+  transport_maritime: 0.01,
+  transport_route_fr: 0.10,
+  transport_mix_intl: 0.05,
+  jour_tournage: 3000,
+  heure_postprod: 4,
+  tv_grp: 0.5,
+  digital_impression: 0.002,
+  ooh_face_semaine: 5,
+  recyclage: 0.5,
+  incineration: 1.5,
+  decharge: 0.8
+};
+
+const state = {
+  phase: 0,
+  inputs: {},
+  brand: {},
+  dossier: {},
+  quantities: {},
+  chart: null
+};
+
+function rand(min, max) { return Math.round(min + Math.random() * (max - min)); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function generateDossier(inputs) {
+  const { categorie, prix, ambition, lieu, taille, media } = inputs;
+
+  const volumeByPrice = { accessible: 30000, mid: 10000, premium: 3000, luxe: 1000 };
+  const ambMult = { nationale: 0.5, eu: 1, internationale: 1.5 };
+  const volume = Math.round(volumeByPrice[prix] * ambMult[ambition]);
+
+  const grammage = { pap: 0.35, accessoires: 0.6, beaute_parfum: 0.15, beaute_cosmo: 0.20, lifestyle: 0.8 }[categorie];
+  const masseCollection = Math.round(volume * grammage);
+
+  const inv = parseInt(taille);
+  const distMix = {
+    paris: { local: 0.7, eu: 0.2, intercont: 0.1, localKm: 30, euKm: 1500, longKm: 6000 },
+    ville_fr: { local: 0.55, eu: 0.3, intercont: 0.15, localKm: 200, euKm: 1500, longKm: 6500 },
+    capitale_eu: { local: 0.25, eu: 0.5, intercont: 0.25, localKm: 50, euKm: 1200, longKm: 7000 },
+    hors_eu: { local: 0.15, eu: 0.25, intercont: 0.6, localKm: 100, euKm: 9000, longKm: 11000 }
+  }[lieu];
+  const ambAdjust = { nationale: { local: 1.3, eu: 0.6, intercont: 0.3 }, eu: { local: 1, eu: 1, intercont: 1 }, internationale: { local: 0.7, eu: 0.9, intercont: 1.6 } }[ambition];
+  let pLocal = Math.min(0.95, distMix.local * ambAdjust.local);
+  let pEu = distMix.eu * ambAdjust.eu;
+  let pIntercont = distMix.intercont * ambAdjust.intercont;
+  const sum = pLocal + pEu + pIntercont;
+  pLocal /= sum; pEu /= sum; pIntercont /= sum;
+
+  const nLocal = Math.round(inv * pLocal);
+  const nEu = Math.round(inv * pEu);
+  const nIntercont = inv - nLocal - nEu;
+
+  const showSize = { 100: { elec: 1200, gaz: 300, bois: 200, metal: 80, textile: 50 }, 250: { elec: 2200, gaz: 600, bois: 450, metal: 180, textile: 110 }, 500: { elec: 4200, gaz: 1100, bois: 850, metal: 350, textile: 220 } }[taille];
+
+  const matiere = { pap: { fe: FE.textile_mix, lib: "Textile (mix coton-poly)" }, accessoires: { fe: FE.maroquinerie_cuir, lib: "Cuir et maroquinerie" }, beaute_parfum: { fe: FE.parfum, lib: "Ingrédients parfum + flaconnage" }, beaute_cosmo: { fe: FE.cosmetique, lib: "Formules cosmétiques + packaging" }, lifestyle: { fe: FE.lifestyle, lib: "Matériaux objets déco" } }[categorie];
+
+  const tournageDays = { accessible: 2, mid: 3, premium: 4, luxe: 5 }[prix];
+  const postprodHours = { accessible: 30, mid: 50, premium: 80, luxe: 120 }[prix];
+  const equipeSize = { accessible: 8, mid: 12, premium: 15, luxe: 20 }[prix];
+  const tournageDistance = { paris: 200, ville_fr: 500, capitale_eu: 1500, hors_eu: 6000 }[lieu];
+
+  const mediaProfile = { organic: { tv: 0, digital: 0, ooh: 0 }, paid_digital: { tv: 200, digital: { accessible: 50000000, mid: 30000000, premium: 15000000, luxe: 5000000 }[prix], ooh: 50 }, "360": { tv: { accessible: 1500, mid: 1000, premium: 600, luxe: 300 }[prix], digital: { accessible: 200000000, mid: 100000000, premium: 50000000, luxe: 15000000 }[prix], ooh: 200 } }[media];
+
+  const finDeVie = { recyclage: 0.25, incineration: 0.55, decharge: 0.20 };
+  const masseRecyc = Math.round(masseCollection * finDeVie.recyclage);
+  const masseIncin = Math.round(masseCollection * finDeVie.incineration);
+  const masseDech = Math.round(masseCollection * finDeVie.decharge);
+
+  const fabBolDistance = { nationale: 800, eu: 2000, internationale: 6000 }[ambition];
+  const fabMode = ambition === "internationale" ? "Mix maritime + routier (Asie)" : ambition === "eu" ? "Routier longue distance" : "Routier national";
+  const fabFE = ambition === "internationale" ? FE.transport_mix_intl : ambition === "eu" ? FE.transport_route_intl : FE.transport_route_fr;
+
+  return {
+    volume, masseCollection, grammage,
+    show: showSize,
+    invites: { local: nLocal, eu: nEu, intercont: nIntercont, localKm: distMix.localKm, euKm: distMix.euKm, longKm: distMix.longKm },
+    fab: { matiere: matiere, masse: masseCollection, distanceLogistique: fabBolDistance, modeLogistique: fabMode, feLogistique: fabFE },
+    campagne: { jours: tournageDays, postprod: postprodHours, equipe: equipeSize, distance: tournageDistance },
+    media: mediaProfile,
+    finDeVie: { recyc: masseRecyc, incin: masseIncin, dech: masseDech }
+  };
+}
+
+function renderDossier() {
+  const b = state.brand;
+  const d = state.dossier;
+  const i = state.inputs;
+
+  const lieuLabel = { paris: "Paris", ville_fr: "Marseille", capitale_eu: "Milan", hors_eu: "Tokyo" }[i.lieu];
+  const catLabel = { pap: "Prêt-à-porter", accessoires: "Accessoires", beaute_parfum: "Parfum", beaute_cosmo: "Cosmétique", lifestyle: "Lifestyle" }[i.categorie];
+  const prixLabel = { accessible: "Accessible", mid: "Mid-range", premium: "Premium", luxe: "Luxe" }[i.prix];
+  const ambLabel = { nationale: "France", eu: "Europe", internationale: "Monde" }[i.ambition];
+  const mediaLabel = { organic: "Organic + relations presse", paid_digital: "Mix paid digital", "360": "Campagne 360° (TV + digital + affichage)" }[i.media];
+
+  document.getElementById("dossierContent").innerHTML = `
+    <div class="dossier-section">
+      <p style="font-size: 12px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 4px;">Dossier interne · Projet Celsius</p>
+      <h2 style="font-family: Georgia, serif; font-size: 26px; margin: 0; color: var(--ink);">${b.name || "Votre marque"}</h2>
+      <p style="font-style: italic; color: var(--ink-2); margin: 6px 0 0; font-size: 15px;">${b.tagline || ""}</p>
+    </div>
+
+    <div class="dossier-section">
+      <div class="dossier-key">Mission</div>
+      <div class="dossier-val">${b.mission || "(à compléter en phase 1)"}</div>
+    </div>
+
+    <div class="dossier-section">
+      <div class="dossier-key">Positionnement</div>
+      <div class="dossier-val"><strong>${catLabel}</strong> · ${prixLabel} · ambition ${ambLabel}</div>
+    </div>
+
+    <div class="dossier-section">
+      <h3 style="font-family: -apple-system, sans-serif; margin: 0 0 12px;">Saison 1 - chiffres clés</h3>
+      <div class="grid-3">
+        <div><div class="dossier-key">Volume vendu</div><div class="dossier-val"><strong>${d.volume.toLocaleString("fr-FR")}</strong> pièces</div></div>
+        <div><div class="dossier-key">Masse totale</div><div class="dossier-val"><strong>${d.masseCollection.toLocaleString("fr-FR")}</strong> kg</div></div>
+        <div><div class="dossier-key">Grammage moyen</div><div class="dossier-val">${(d.grammage * 1000)} g / pièce</div></div>
+      </div>
+    </div>
+
+    <div class="dossier-section">
+      <h3 style="font-family: -apple-system, sans-serif; margin: 0 0 12px;">Show de lancement</h3>
+      <p style="margin: 0 0 8px;">Lieu : <strong>${lieuLabel}</strong> · ${i.taille} invités</p>
+      <div class="grid-3" style="margin-top: 12px;">
+        <div><div class="dossier-key">Énergie élec</div><div class="dossier-val">${d.show.elec.toLocaleString("fr-FR")} kWh</div></div>
+        <div><div class="dossier-key">Énergie gaz</div><div class="dossier-val">${d.show.gaz.toLocaleString("fr-FR")} kWh</div></div>
+        <div><div class="dossier-key">Scénographie</div><div class="dossier-val">${d.show.bois} kg bois · ${d.show.metal} kg métal · ${d.show.textile} kg textile</div></div>
+      </div>
+      <p style="margin: 16px 0 0; font-size: 13px; color: var(--ink-2);">Cocktail traiteur : <strong>${i.taille}</strong> couverts</p>
+    </div>
+
+    <div class="dossier-section">
+      <h3 style="font-family: -apple-system, sans-serif; margin: 0 0 12px;">Transport des invités</h3>
+      <table style="width: 100%; font-size: 14px;">
+        <tr><td style="padding: 6px 0;">Invités locaux (voiture / VTC)</td><td style="text-align: right;"><strong>${d.invites.local}</strong> invités · ~${d.invites.localKm} km moyens A/R</td></tr>
+        <tr><td style="padding: 6px 0;">Invités venant de villes EU (avion court)</td><td style="text-align: right;"><strong>${d.invites.eu}</strong> invités · ~${d.invites.euKm} km moyens A/R 🔍</td></tr>
+        <tr><td style="padding: 6px 0;">Invités intercontinentaux (avion long)</td><td style="text-align: right;"><strong>${d.invites.intercont}</strong> invités · ~${d.invites.longKm} km moyens A/R 🔍</td></tr>
+      </table>
+      <p style="margin: 12px 0 0; font-size: 12px; color: var(--accent-2);">🔍 Distances précises à vérifier sur Google Maps pour le calcul</p>
+    </div>
+
+    <div class="dossier-section">
+      <h3 style="font-family: -apple-system, sans-serif; margin: 0 0 12px;">Fabrication de la collection</h3>
+      <p style="margin: 0 0 8px;">Matière dominante : <strong>${d.fab.matiere.lib}</strong></p>
+      <p style="margin: 0 0 8px;">Production : <strong>${d.fab.masse.toLocaleString("fr-FR")} kg</strong> à confectionner</p>
+      <p style="margin: 0 0 8px;">Logistique d'acheminement : <strong>${d.fab.modeLogistique}</strong> sur ~${d.fab.distanceLogistique} km</p>
+    </div>
+
+    <div class="dossier-section">
+      <h3 style="font-family: -apple-system, sans-serif; margin: 0 0 12px;">Production de la campagne publicitaire</h3>
+      <table style="width: 100%; font-size: 14px;">
+        <tr><td style="padding: 6px 0;">Jours de tournage</td><td style="text-align: right;"><strong>${d.campagne.jours}</strong> jours</td></tr>
+        <tr><td style="padding: 6px 0;">Heures de post-production</td><td style="text-align: right;"><strong>${d.campagne.postprod}</strong> heures</td></tr>
+        <tr><td style="padding: 6px 0;">Équipe (réalisateur, DA, technique, talents)</td><td style="text-align: right;"><strong>${d.campagne.equipe}</strong> personnes</td></tr>
+        <tr><td style="padding: 6px 0;">Distance moyenne déplacements équipe</td><td style="text-align: right;">~${d.campagne.distance} km / personne</td></tr>
+      </table>
+    </div>
+
+    <div class="dossier-section">
+      <h3 style="font-family: -apple-system, sans-serif; margin: 0 0 12px;">Diffusion media</h3>
+      <p style="margin: 0 0 8px;">Stratégie : <strong>${mediaLabel}</strong></p>
+      ${d.media.tv > 0 ? `<p style="margin: 0 0 4px;">TV : ${d.media.tv.toLocaleString("fr-FR")} GRP cumulés</p>` : ""}
+      ${d.media.digital > 0 ? `<p style="margin: 0 0 4px;">Digital : ${d.media.digital.toLocaleString("fr-FR")} impressions sur 6 semaines</p>` : ""}
+      ${d.media.ooh > 0 ? `<p style="margin: 0 0 4px;">Affichage : ${d.media.ooh} faces sur 4 semaines</p>` : ""}
+      ${d.media.tv === 0 && d.media.digital === 0 && d.media.ooh === 0 ? `<p style="margin: 0 0 4px; color: var(--ink-2); font-style: italic;">Aucune diffusion payée - vous misez sur les relations presse et le bouche-à-oreille</p>` : ""}
+    </div>
+
+    <div class="dossier-section">
+      <h3 style="font-family: -apple-system, sans-serif; margin: 0 0 12px;">Fin de vie estimée de la collection (sur 5 ans)</h3>
+      <table style="width: 100%; font-size: 14px;">
+        <tr><td style="padding: 6px 0;">Recyclage</td><td style="text-align: right;">25% · soit <strong>${d.finDeVie.recyc.toLocaleString("fr-FR")} kg</strong></td></tr>
+        <tr><td style="padding: 6px 0;">Incinération avec valorisation</td><td style="text-align: right;">55% · soit <strong>${d.finDeVie.incin.toLocaleString("fr-FR")} kg</strong></td></tr>
+        <tr><td style="padding: 6px 0;">Décharge / oubli</td><td style="text-align: right;">20% · soit <strong>${d.finDeVie.dech.toLocaleString("fr-FR")} kg</strong></td></tr>
+      </table>
+      <p style="margin: 12px 0 0; font-size: 12px; color: var(--ink-3);">Hypothèses sectorielles ADEME 2024 - certaines catégories n'ont pas de FE consolidé, vous chercherez celui qui manque en phase 3.</p>
+    </div>
+  `;
+}
+
+const POSTES = [
+  {
+    nom: "Énergie et scénographie du show",
+    lignes: [
+      { id: "elec", label: "Électricité du lieu", unit: "kWh", fe: FE.elec_fr, getQty: d => d.show.elec },
+      { id: "gaz", label: "Gaz / chauffage du lieu", unit: "kWh PCI", fe: FE.gaz, getQty: d => d.show.gaz },
+      { id: "bois", label: "Scénographie - bois", unit: "kg", fe: FE.bois_scenographie, getQty: d => d.show.bois },
+      { id: "metal", label: "Scénographie - métal", unit: "kg", fe: FE.metal_scenographie, getQty: d => d.show.metal },
+      { id: "textile_s", label: "Scénographie - textile / drapés", unit: "kg", fe: FE.textile_scenographie, getQty: d => d.show.textile },
+      { id: "cocktail", label: "Cocktail traiteur", unit: "couverts", fe: FE.repas_cocktail, getQty: (d, i) => parseInt(i.taille) }
+    ]
+  },
+  {
+    nom: "Transport des invités au show",
+    lignes: [
+      { id: "inv_local", label: "Invités locaux (voiture / VTC)", unit: "pkm", fe: FE.voiture / 2, getQty: d => d.invites.local * d.invites.localKm, note: "FE divisé par 2 = 2 personnes/véhicule moyen" },
+      { id: "inv_eu", label: "Invités EU (avion court-courrier)", unit: "pkm", fe: FE.avion_court, getQty: d => d.invites.eu * d.invites.euKm, chase: true, chaseHint: "Distance A/R à vérifier" },
+      { id: "inv_long", label: "Invités intercontinentaux (avion long)", unit: "pkm", fe: FE.avion_long, getQty: d => d.invites.intercont * d.invites.longKm, chase: true, chaseHint: "Distance A/R à vérifier" }
+    ]
+  },
+  {
+    nom: "Fabrication de la collection",
+    lignes: [
+      { id: "matiere", label: "Matière première + transformation", unit: "kg", fe: null, feFn: d => d.fab.matiere.fe, getQty: d => d.fab.masse, chase: true, chaseHint: "FE matière à confirmer sur Base Empreinte ADEME" },
+      { id: "confection", label: "Confection / assemblage", unit: "kg", fe: FE.confection, getQty: d => d.fab.masse },
+      { id: "logistique", label: "Logistique amont (acheminement)", unit: "tkm", fe: null, feFn: d => d.fab.feLogistique, getQty: d => Math.round(d.fab.masse * d.fab.distanceLogistique / 1000) }
+    ]
+  },
+  {
+    nom: "Production de la campagne publicitaire",
+    lignes: [
+      { id: "tournage", label: "Jours de tournage", unit: "jours", fe: FE.jour_tournage, getQty: d => d.campagne.jours, note: "FE moyen AdGreen / Carbon'Clap" },
+      { id: "postprod", label: "Post-production", unit: "heures", fe: FE.heure_postprod, getQty: d => d.campagne.postprod },
+      { id: "deplacement_equipe", label: "Déplacements équipe tournage", unit: "pkm", fe: FE.avion_court * 0.7, getQty: d => d.campagne.equipe * d.campagne.distance, note: "Mix avion / train / voiture" }
+    ]
+  },
+  {
+    nom: "Diffusion media de la campagne",
+    lignes: [
+      { id: "tv", label: "Diffusion TV", unit: "GRP", fe: FE.tv_grp, getQty: d => d.media.tv },
+      { id: "digital", label: "Diffusion digitale", unit: "impressions", fe: FE.digital_impression, getQty: d => d.media.digital },
+      { id: "ooh", label: "Affichage extérieur", unit: "face × semaine", fe: FE.ooh_face_semaine, getQty: d => d.media.ooh * 4 }
+    ]
+  },
+  {
+    nom: "Fin de vie de la collection",
+    lignes: [
+      { id: "recyc", label: "Recyclage", unit: "kg", fe: FE.recyclage, getQty: d => d.finDeVie.recyc },
+      { id: "incin", label: "Incinération avec valorisation", unit: "kg", fe: FE.incineration, getQty: d => d.finDeVie.incin },
+      { id: "dech", label: "Décharge", unit: "kg", fe: FE.decharge, getQty: d => d.finDeVie.dech }
+    ]
+  }
+];
+
+function renderCalcTable() {
+  const tbody = document.getElementById("calcBody");
+  let html = "";
+  POSTES.forEach((poste, pIdx) => {
+    html += `<tr class="poste-header"><td colspan="5">${pIdx + 1}. ${poste.nom}</td></tr>`;
+    poste.lignes.forEach(ligne => {
+      const fe = ligne.feFn ? ligne.feFn(state.dossier) : ligne.fe;
+      const qty = ligne.getQty ? ligne.getQty(state.dossier, state.inputs) : 0;
+      state.quantities[ligne.id] = qty;
+      const feDisplay = fe ? (fe < 0.01 ? fe.toExponential(2) : fe < 1 ? fe.toFixed(3) : fe.toFixed(2)) : "?";
+      const chaseClass = ligne.chase ? " chase" : "";
+      html += `<tr class="${chaseClass}" data-line="${ligne.id}">
+        <td class="label">${ligne.label}${ligne.chase ? ' <span style="font-size:11px; color: var(--accent-2);">' + ligne.chaseHint + '</span>' : ""}</td>
+        <td class="num"><input type="number" data-qty="${ligne.id}" value="${qty}" /></td>
+        <td class="unit">${ligne.unit}</td>
+        <td class="fe">${feDisplay}</td>
+        <td class="num result" data-result="${ligne.id}">0</td>
+      </tr>`;
+    });
+  });
+  html += `<tr class="total-row"><td colspan="4">Total saison 1</td><td class="num result" id="grandTotal" style="font-size: 15px;">0 kgCO₂e</td></tr>`;
+  tbody.innerHTML = html;
+
+  document.querySelectorAll("input[data-qty]").forEach(el => {
+    el.addEventListener("input", () => updateCalculations());
+  });
+
+  updateCalculations();
+}
+
+function updateCalculations() {
+  const totalsByPoste = [];
+  let grandTotal = 0;
+
+  POSTES.forEach((poste, pIdx) => {
+    let posteTotal = 0;
+    poste.lignes.forEach(ligne => {
+      const qtyInput = document.querySelector(`input[data-qty="${ligne.id}"]`);
+      const qty = qtyInput ? parseFloat(qtyInput.value) || 0 : 0;
+      const fe = ligne.feFn ? ligne.feFn(state.dossier) : (ligne.fe || 0);
+      const emissions = qty * fe;
+      posteTotal += emissions;
+      const resultCell = document.querySelector(`td[data-result="${ligne.id}"]`);
+      if (resultCell) {
+        const display = emissions >= 1000 ? `${(emissions / 1000).toFixed(2)} t` : `${Math.round(emissions).toLocaleString("fr-FR")} kg`;
+        resultCell.textContent = display + " CO₂e";
+      }
+    });
+    totalsByPoste.push({ nom: poste.nom, total: posteTotal });
+    grandTotal += posteTotal;
+  });
+
+  const grandEl = document.getElementById("grandTotal");
+  if (grandEl) grandEl.textContent = `${(grandTotal / 1000).toFixed(2)} tCO₂e`;
+
+  document.getElementById("totalCO2").innerHTML = `${(grandTotal / 1000).toFixed(1)}<span class="stat-unit"> tCO₂e</span>`;
+  const sortedPostes = [...totalsByPoste].sort((a, b) => b.total - a.total);
+  document.getElementById("topPoste").textContent = sortedPostes[0] ? sortedPostes[0].nom.replace(/^(Énergie|Transport|Fabrication|Production|Diffusion|Fin)/, m => m) : "—";
+  const perPiece = state.dossier.volume ? Math.round(grandTotal / state.dossier.volume * 10) / 10 : 0;
+  document.getElementById("perPiece").innerHTML = `${perPiece}<span class="stat-unit"> kgCO₂e</span>`;
+
+  updateChart(totalsByPoste);
+  updateBcSummary(totalsByPoste, grandTotal);
+}
+
+function updateChart(totalsByPoste) {
+  const ctx = document.getElementById("bcChart");
+  if (!ctx) return;
+  const colors = ["#2c6e49", "#d4843c", "#6b4d8c", "#a8553b", "#4d8c8a", "#8c6b4d"];
+  const data = {
+    labels: totalsByPoste.map(p => p.nom.length > 24 ? p.nom.substring(0, 22) + "..." : p.nom),
+    datasets: [{
+      data: totalsByPoste.map(p => Math.round(p.total / 10) / 100),
+      backgroundColor: colors,
+      borderWidth: 0
+    }]
+  };
+  if (state.chart) {
+    state.chart.data = data;
+    state.chart.update();
+  } else {
+    state.chart = new Chart(ctx, {
+      type: "doughnut",
+      data: data,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "right", labels: { font: { size: 12 }, padding: 12, boxWidth: 14 } },
+          tooltip: { callbacks: { label: c => `${c.label}: ${c.parsed.toFixed(2)} tCO₂e (${(c.parsed / data.datasets[0].data.reduce((a, b) => a + b, 0) * 100).toFixed(0)}%)` } }
+        }
+      }
+    });
+  }
+}
+
+function updateBcSummary(totalsByPoste, grandTotal) {
+  const sorted = [...totalsByPoste].sort((a, b) => b.total - a.total);
+  const top3 = sorted.slice(0, 3);
+  const summary = `Votre saison 1 émet <strong style="color: var(--ink); font-size: 16px;">${(grandTotal / 1000).toFixed(1)} tCO₂e</strong> au total.<br>
+  Les 3 postes dominants sont : <strong>${top3[0].nom}</strong> (${(top3[0].total / 1000).toFixed(1)} t · ${Math.round(top3[0].total / grandTotal * 100)}%), <strong>${top3[1].nom}</strong> (${(top3[1].total / 1000).toFixed(1)} t · ${Math.round(top3[1].total / grandTotal * 100)}%), et <strong>${top3[2].nom}</strong> (${(top3[2].total / 1000).toFixed(1)} t · ${Math.round(top3[2].total / grandTotal * 100)}%).<br>
+  Empreinte par pièce vendue : ${state.dossier.volume ? Math.round(grandTotal / state.dossier.volume * 10) / 10 : 0} kgCO₂e.`;
+  document.getElementById("bcSummary").innerHTML = summary;
+}
+
+function goTo(phase) {
+  document.querySelectorAll(".phase").forEach(p => p.classList.remove("active"));
+  document.querySelector(`[data-phase="${phase}"]`).classList.add("active");
+  document.querySelectorAll("#phasesNav button").forEach(b => {
+    const target = parseInt(b.dataset.go);
+    b.classList.remove("active");
+    if (target === phase) b.classList.add("active");
+    if (target < phase) b.classList.add("done");
+    else b.classList.remove("done");
+  });
+  document.querySelectorAll("#stepIndicator .dot").forEach((d, i) => {
+    d.classList.remove("done", "current");
+    if (i < phase) d.classList.add("done");
+    if (i === phase) d.classList.add("current");
+  });
+  state.phase = phase;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function generateAndGo() {
+  state.brand = {
+    name: document.getElementById("brandName").value || "(sans nom)",
+    tagline: document.getElementById("brandTagline").value,
+    mood: document.getElementById("brandMood").value,
+    mission: document.getElementById("brandMission").value
+  };
+  state.inputs = {
+    categorie: document.getElementById("categorie").value,
+    prix: document.getElementById("prix").value,
+    ambition: document.getElementById("ambition").value,
+    lieu: document.getElementById("lieu").value,
+    taille: document.getElementById("taille").value,
+    media: document.getElementById("media").value
+  };
+  state.dossier = generateDossier(state.inputs);
+  renderDossier();
+  renderCalcTable();
+  goTo(2);
+}
+
+function exportSession() {
+  const data = {
+    marque: state.brand,
+    choix: state.inputs,
+    dossier: state.dossier,
+    bilan: state.quantities,
+    leviers: Array.from(document.querySelectorAll("#leviersContainer .levier")).map(l => {
+      const inputs = l.querySelectorAll("input, textarea");
+      return { poste: inputs[0]?.value, action: inputs[1]?.value, impact: inputs[2]?.value };
+    }),
+    message: document.getElementById("messageDirection").value,
+    date: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `BC-${(state.brand.name || "marque").replace(/[^a-zA-Z0-9]/g, "_")}-${new Date().toISOString().split("T")[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.querySelectorAll("#phasesNav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const target = parseInt(btn.dataset.go);
+    if (target === 0) goTo(0);
+    else if (target === 1) goTo(1);
+    else if (target >= 2 && state.dossier.volume) goTo(target);
+    else if (target >= 2) alert("Remplissez d'abord la fiche marque (phase 1).");
+  });
+});
+</script>
+</body>
+</html>
